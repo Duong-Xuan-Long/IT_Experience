@@ -1,0 +1,138 @@
+public ResponseEntity<?> exportShippingOrdersToExcel(@RequestBody OrderShippingSearchRequest orderShippingSearchRequest){
+    try {
+      Page<OrderShippingSearchResponse> data=null;
+      if(orderShippingSearchRequest.getShippingTypeId()!=0){
+        data =orderRepository.getALlShippingOrders(
+            orderShippingSearchRequest.getSearchText(),
+            orderShippingSearchRequest.getShippingTypeId(),
+            orderShippingSearchRequest.getDateFrom(),
+            orderShippingSearchRequest.getDateTo(),
+            PageRequest.of(orderShippingSearchRequest.getPageNumber()-1,orderShippingSearchRequest.getPageSize())
+        );
+      }
+      data =orderRepository.getALlShippingOrders(
+          orderShippingSearchRequest.getSearchText(),
+          null,
+          orderShippingSearchRequest.getDateFrom(),
+          orderShippingSearchRequest.getDateTo(),
+          PageRequest.of(orderShippingSearchRequest.getPageNumber()-1,orderShippingSearchRequest.getPageSize())
+      );
+      List<OrderShippingSearchJasper> result = new ArrayList<>();
+      if (data.isEmpty()) throw new Exception(Const.MESSAGE_CODE.FILE_ISEMPTY);
+      data.forEach(item -> {
+        OrderShippingSearchJasper re = new OrderShippingSearchJasper();
+        if(item.getShippingCode()!=null){
+          re.setShippingCode(item.getShippingCode());
+        }else{
+          re.setShippingCode("");
+        }
+        ShippingType shippingType=shippingTypeRepository.findById(item.getShippingTypeId()).orElse(null);
+        if(shippingType!=null) {
+          re.setShippingType(shippingType.getName());
+        }else{
+          re.setShippingType("");
+        };
+        if(item.getCustomerCode()!=null){
+          re.setCustomerCode(item.getCustomerCode());
+        }else{
+          re.setCustomerCode("");
+        }
+        re.setBillCode(item.getBillCode());
+        try{
+          byte[] fileContent = IOUtils.toByteArray(new URL(item.getImageUrls().get(0)).openStream());
+          re.setImageUrl(item.getImageUrls().get(0));
+        }catch (Exception e){
+          re.setImageUrl(null);
+        }
+        if(item.getNote()!=null){
+          re.setNote(item.getNote());
+        }else{
+          re.setNote("");
+        }
+        SimpleDateFormat formatter = new SimpleDateFormat("dd/MM/yyyy");
+        String strDate = formatter.format(item.getShippingDate());
+        re.setShippingDate(strDate);
+        result.add(re);
+      });
+
+      String type = "excel";
+      HttpHeaders headers = new HttpHeaders();
+      Date date = new Date();
+      SimpleDateFormat formatter = new SimpleDateFormat("ddMMyyyy");
+      String strDate = formatter.format(date);
+      //xuat bc
+      String fileName = "InDanhSachHangDangGiao";
+      String jrxml = Constants.COMMON.REPORT_PATH + fileName + ".jrxml";
+      String jasper = Constants.COMMON.REPORT_PATH + fileName + ".jasper";
+      Map<String, Object> parameters = new HashMap<>();
+      String[] sheetNames = {"Sheet 1"};
+      //set parameter
+      JasperReport jasperReport = ReportUtils.getCompiledFile(jasper, jrxml);
+      byte[] bytes = null;
+      switch (type) {
+        case "excel":
+          bytes = ReportUtils.generateReportExcels(result, parameters, jasperReport, new String[]{"Sheet 1"});
+          headers.setContentType(MediaType.parseMediaType(Constants.REPORT.PRODUCES_EXCEL));
+          headers.add("Access-Control-Expose-Headers", "Content-Disposition");
+          headers.setContentDispositionFormData("DanhSachDonDangGiao" + new SimpleDateFormat("ddMMyyyyHHmmss").format(new Date()) + ".xlsx", "DanhSachDonDangGiao" + new SimpleDateFormat("ddMMyyyyHHmmss").format(new Date()) + ".xlsx");
+          headers.add("fileName", "DanhSachDonDangGiao" + new SimpleDateFormat("ddMMyyyyHHmmss").format(new Date()) + ".xlsx");
+          break;
+        default:
+          bytes = ReportUtils.generateReportExcels(null, parameters, jasperReport, new String[]{"Sheet 1"});
+          headers.setContentType(MediaType.parseMediaType(Constants.REPORT.PRODUCES_EXCEL));
+          headers.setContentDispositionFormData(fileName + "-" + strDate + ".xlsx", fileName + "-" + strDate + ".xlsx");
+          break;
+      }
+      //end xuat bc
+      return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
+
+    } catch (Exception ex) {
+      ex.printStackTrace();
+      return new ResponseEntity<>(com.sphinx.vship.core.model.ApiResponse.build(ex.getMessage(), ex.getMessage(), null, null, null), null, HttpStatus.OK);
+    }
+  }
+
+
+
+public static byte[] generateReportDocx(List<?> dataSource, Map<String, Object> parameters, JasperReport jasperReport) throws JRException {
+        jasperReport.setWhenNoDataType(WhenNoDataTypeEnum.ALL_SECTIONS_NO_DETAIL);
+        JRBeanCollectionDataSource beanDataSource = new JRBeanCollectionDataSource(dataSource);
+        JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, beanDataSource);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        JRDocxExporter exporter = new JRDocxExporter();
+        exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
+        exporter.setExporterOutput(new SimpleOutputStreamExporterOutput(baos));
+        SimpleDocxReportConfiguration config = new SimpleDocxReportConfiguration();
+        exporter.setConfiguration(config);
+        exporter.exportReport();
+        return baos.toByteArray();
+    }
+
+    public static byte[] generateReportExcels(List<?> dataSource, Map<String, Object> parameters, JasperReport jasperReport, String[] sheetNames) throws JRException {
+        jasperReport.setWhenNoDataType(WhenNoDataTypeEnum.ALL_SECTIONS_NO_DETAIL);
+        JRBeanCollectionDataSource beanColDataSource = new JRBeanCollectionDataSource(dataSource);
+        JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, beanColDataSource);
+        JRXlsxExporter exporter = new JRXlsxExporter();
+        SimpleXlsxReportConfiguration reportConfigXLS = new SimpleXlsxReportConfiguration();
+        reportConfigXLS.setSheetNames(sheetNames);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        exporter.setConfiguration(reportConfigXLS);
+        exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
+        exporter.setExporterOutput(new SimpleOutputStreamExporterOutput(baos));
+        exporter.exportReport();
+        return baos.toByteArray();
+    }
+
+    public static byte[] generateReportCsv(List<?> dataSource, Map<String, Object> parameters, JasperReport jasperReport) throws JRException {
+        jasperReport.setWhenNoDataType(WhenNoDataTypeEnum.ALL_SECTIONS_NO_DETAIL);
+        JRBeanCollectionDataSource beanColDataSource = new JRBeanCollectionDataSource(dataSource);
+        JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, parameters, beanColDataSource);
+        JRCsvExporter exporter=new JRCsvExporter();
+        SimpleCsvExporterConfiguration reportConfigXLS = new SimpleCsvExporterConfiguration();
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        exporter.setConfiguration(reportConfigXLS);
+        exporter.setExporterInput(new SimpleExporterInput(jasperPrint));
+        exporter.setExporterOutput(new SimpleWriterExporterOutput(baos));
+        exporter.exportReport();
+        return baos.toByteArray();
+    }

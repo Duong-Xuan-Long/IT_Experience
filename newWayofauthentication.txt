@@ -1,0 +1,87 @@
+package com.sphinx.vship.core.service.security;
+
+import com.sphinx.vship.auth.dto.UserProfileDto;
+import com.sphinx.vship.auth.mapper.UserMapper;
+import com.sphinx.vship.core.enitity.PermissionPathUrl;
+import com.sphinx.vship.core.enitity.User;
+import com.sphinx.vship.core.repository.PermissionPathUrlRepository;
+import com.sphinx.vship.core.utils.DataUtil;
+import lombok.extern.slf4j.Slf4j;
+import org.mapstruct.factory.Mappers;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+
+import javax.servlet.http.HttpServletRequest;
+import java.util.List;
+import java.util.Objects;
+
+@Service("vShipAuthorizer")
+@Slf4j
+public class AppAuthorizerImpl implements AppAuthorizer {
+
+  @Autowired
+  private PermissionPathUrlRepository permissionPathUrlRepository;
+
+  private final UserMapper userMapper = Mappers.getMapper(UserMapper.class);
+
+    @Override
+    public boolean authorize(Authentication authentication) {
+      HttpServletRequest request =
+              ((ServletRequestAttributes) Objects.requireNonNull(RequestContextHolder.getRequestAttributes()))
+                      .getRequest();
+      String path = request.getContextPath() + request.getServletPath();
+      String method = request.getMethod();
+      if (DataUtil.isNullOrEmpty(path) || DataUtil.isNullOrEmpty(method)){
+        return false;
+      }
+      path = path.trim();
+      method = method.trim();
+      long userId;
+      try {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        UserProfileDto resultDTO = userMapper.map((User) principal);
+        if (resultDTO == null || resultDTO.getId() == null){
+          userId = -1;
+        }else{
+          userId = resultDTO.getId();
+        }
+      }catch (Exception e){
+        userId = -1;
+        log.error(e.getMessage());
+      }
+      List<PermissionPathUrl> permissionPathUrls = permissionPathUrlRepository.getPermissionForUser(userId, path, method);
+      return permissionPathUrls.size() > 0;
+    }
+}
+
+
+sql :
+package com.sphinx.vship.core.repository;
+
+import com.sphinx.vship.core.enitity.PermissionPathUrl;
+import jdk.jfr.Registered;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+
+@Registered
+public interface PermissionPathUrlRepository extends JpaRepository<PermissionPathUrl, Long> {
+
+  @Query(value = "select ppu.* from admin_role ur\n" +
+      "inner join admin_role_permission rp on rp.role_id = ur.role_id\n" +
+      "inner join permission_path_url ppu on ppu.permission_id = rp.permission_id\n" +
+      "where ur.user_id = ?1\n" +
+      "and ?2 like concat(ppu.path_url,  '%')\n" +
+      "and ppu.method like ?3\n" +
+      "union\n" +
+      "select ppu.* from permission_path_url ppu \n" +
+      "where ppu.permission_id = 0 and ?2 like concat(ppu.path_url,  '%')\n" +
+      "and ppu.method like ?3", nativeQuery = true)
+  List<PermissionPathUrl> getPermissionForUser(Long userId, String pathUrl, String method);
+
+}

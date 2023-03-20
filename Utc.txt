@@ -1,0 +1,8 @@
+public static Date getUTCDateTime(){
+        try {
+            ZonedDateTime utcTime = new Date().toInstant().atZone(ZoneId.of("UTC"));
+            return new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").parse(utcTime.toString());
+        }catch (Exception e){
+            return null;
+        }
+    }

@@ -1,0 +1,75 @@
+package com.vshipping.admin.config;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import lombok.SneakyThrows;
+
+import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+
+public class DateSqlDeserializer extends JsonDeserializer<Date> {
+
+    private DateFormat df = new SimpleDateFormat("dd-MM-yyyy");
+    private DateFormat dtf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+
+    @SneakyThrows
+    @Override
+    public Date deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+        String datePattern = "\\d{2}-\\d{2}-\\d{4}";
+        String dateTimePattern = "\\d{2}-\\d{2}-\\d{4}\\s\\d{2}:\\d{2}:\\d{2}";
+        if(p.getText().matches(datePattern)){
+            return new Date(df.parse(p.getText()).getTime());
+        }
+        if(p.getText().matches(dateTimePattern)){
+            return new Date(dtf.parse(p.getText()).getTime());
+        }
+        return null;
+    }
+
+}
+
+package com.vshipping.admin.config;
+
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.SerializerProvider;
+
+import java.io.IOException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
+
+public class DateSqlSerializer extends JsonSerializer<Date> {
+
+    private DateFormat df = new SimpleDateFormat("dd-MM-yyyy");
+    private DateFormat dtf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+
+    @Override
+    public void serialize(Date date, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
+        if (date == null) {
+            jsonGenerator.writeNull();
+        } else {
+            String str;
+            if(new Date(date.getTime()).getHours() > 0){
+                str = dtf.format(date);;
+            }else {
+                str = df.format(date);;
+            }
+            jsonGenerator.writeString(str);
+        }
+    }
+}
+
+@Bean
+	public JavaTimeModule javaTimeModule() {
+		JavaTimeModule javaTimeModule = new JavaTimeModule();
+		javaTimeModule.addDeserializer(Date.class, new DateSqlDeserializer());
+		javaTimeModule.addSerializer(Date.class, new DateSqlSerializer());
+		return javaTimeModule;
+	}

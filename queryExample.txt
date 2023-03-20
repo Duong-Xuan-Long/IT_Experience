@@ -1,0 +1,29 @@
+  @Query(value = "select od.id as id,\n" +
+      "       odn.bill_code as billCode,\n" +
+      "       odn.package_code as packageCode,\n" +
+      "       odn.customer_code as customerCode,\n" +
+      "       od.product_id as productId,\n" +
+      " odn.updated_at as cancelDate \n" +
+      "from order_detail_new od\n" +
+      "         left join orders_new odn on od.bill_code = odn.bill_code\n" +
+      "       left join jp_inventory_new j on j.bill_code = od.bill_code\n" +
+      "where  (odn.delivery_status = 6 or j.delivery_status = 6) and\n" +
+      "      (odn.customer_code like ?1\n" +
+      "   or odn.package_code like ?1\n" +
+      "or odn.bill_code like ?1\n" +
+      "or od.product_id like ?1)\n" +
+      "  and (?2 is null or od.updated_at >= ?2)\n" +
+      "    and (?3 is null or od.updated_at <= ?3)\n" +
+      "order by odn.updated_at desc ", countQuery = "select count(1)" +
+      "from order_detail_new od\n" +
+      "         left join orders_new odn on od.bill_code = odn.bill_code\n" +
+      "       left join jp_inventory_new j on j.bill_code = od.bill_code\n" +
+      "where   (odn.delivery_status = 6 or j.delivery_status = 6)  and\n" +
+      "      (odn.customer_code like ?1\n" +
+      "   or odn.package_code like ?1\n" +
+      "or odn.bill_code like ?1\n" +
+      "or od.product_id like ?1)\n" +
+      "  and (?2 is null or od.updated_at >= ?2)\n" +
+      "    and (?3 is null or od.updated_at <= ?3)\n" +
+      "order by odn.updated_at desc ", nativeQuery = true)
+  Page<CancelOrderSearchRequest> cancelOrderSearchRelease(String textSearch, Date date1, Date date2, Pageable pageable);

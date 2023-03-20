@@ -1,0 +1,11 @@
+link google console APi: https://developers.google.com/identity/protocols/oauth2/web-server
+
+đường link tạo để lấy code : 
+https://accounts.google.com/o/oauth2/v2/auth?
+ scope=https://mail.google.com/&
+ access_type=offline&
+ include_granted_scopes=true&
+ response_type=code&
+ state=state_parameter_passthrough_value&
+ redirect_uri=http://localhost&
+ client_id=176556094637-fb10mnkjfvf1i6f0hibpenmts3mh0vdv.apps.googleusercontent.com

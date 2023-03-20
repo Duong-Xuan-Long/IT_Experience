@@ -1,0 +1,39 @@
+ try {
+      StringBuilder query = new StringBuilder()
+          .append("select od.id as id,od.bill_Code as billCode,od.code as code,o.seller_shipping_date as sellerShippingDate " +
+              " from order_detail_new od left join orders_new o on o.bill_Code = od.bill_Code " +
+              " left join jp_inventory j on j.bill_code = od.bill_code\n" +
+              " where 1=1");
+      Map map = new HashMap();
+      if (!ObjectUtils.isEmpty(request.getQuery())) {
+        query.append(" and ( od.bill_Code like :query or od.code like :query ) ");
+      }
+      if (!ObjectUtils.isEmpty(request.getWarningStatus())) {
+        switch (request.getWarningStatus()) {
+          case 1:
+            query.append(" and od.seller_shipping_date >= now() or od.seller_shipping_date is null");
+            break;
+          case 2:
+            query.append(" and now() > od.seller_shipping_date ");
+            break;
+          default:
+            break;
+        }
+      }
+      query.append(" and j.delivery_Status = 0 and od.deleted = false ");
+      query.append(" limit :start offset :end");
+      Query queryExecuted = entityManager.createNativeQuery(query.toString()).unwrap(NativeQuery.class)
+          .addScalar("id", StandardBasicTypes.LONG)
+          .addScalar("billCode", StandardBasicTypes.STRING)
+          .addScalar("code", StandardBasicTypes.STRING)
+          .addScalar("sellerShippingDate", StandardBasicTypes.DATE)
+          .setResultTransformer(Transformers.aliasToBean(OrderDetailJpWaitDTO.class));
+      if (!ObjectUtils.isEmpty(request.getQuery()))
+        queryExecuted.setParameter("query", request.getQuery());
+      queryExecuted.setParameter("end", request.getPageNumber() <= 1 ? 0 : ((request.getPageNumber() - 1) * request.getPageSize()));
+      queryExecuted.setParameter("start", request.getPageSize());
+      return queryExecuted.getResultList();
+    } catch (Exception e) {
+      e.printStackTrace();
+      throw new IllegalArgumentException(Const.MESSAGE_CODE.Internal_Server_Error);
+    }

@@ -1,0 +1,11 @@
+public Category parse(JSONObject json) {
+    return new Category(
+            Integer.parseInt(Objects.requireNonNull(JSONUtils.getSimpleJSONValue(json, "id")).toString()),
+            (String) JSONUtils.getSimpleJSONValue(json, "name"),
+            Integer.parseInt(Objects.requireNonNull(JSONUtils.getSimpleJSONValue(json, "level")).toString()),
+            Integer.parseInt(Objects.requireNonNull(JSONUtils.getSimpleJSONValue(json, "parentId")).toString()),
+            Integer.parseInt(Objects.requireNonNull(JSONUtils.getSimpleJSONValue(json, "itemBrandGroupId")).toString()),
+            Integer.parseInt(Objects.requireNonNull(JSONUtils.getSimpleJSONValue(json, "itemSizeGroupId")).toString()),
+            Integer.parseInt(Objects.requireNonNull(JSONUtils.getSimpleJSONValue(json, "displayOrder")).toString())
+    );
+  }
