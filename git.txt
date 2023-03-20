@@ -1,0 +1,2 @@
+git branch -d <branchName> dùng để xóa nhánh ở local
+git push origin -d <branchName> dùng để xóa nhánh ở remote
